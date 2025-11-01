@@ -1,0 +1,7 @@
+Primary goals
+- Keep changes minimal, surgical, and testable.
+- Follow AGENTS.md as the single source of truth.
+
+Ground rules
+- No secrets; add/update tests when changing logic.
+- Preserve telemetry and governance workflows.
