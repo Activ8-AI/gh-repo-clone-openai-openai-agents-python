@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // managed-by: activ8-ai-context-pack | pack-version: 1.1.0
-// source-sha: bff7ed8
+// source-sha: 3fab2c5
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { safePersistActionReceipt } from "./lib/action-persistence.mjs";
+import { labelCt, safePersistActionReceipt, timestampCt } from "./lib/action-persistence.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, "..");
@@ -20,30 +20,6 @@ const args = new Set(process.argv.slice(2));
 const dryRun = args.has("--dry-run");
 const withSync = args.has("--with-sync");
 const startedAtMs = Date.now();
-
-function nowCtParts() {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Chicago",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date());
-  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
-}
-
-function timestampCt() {
-  const p = nowCtParts();
-  return `${p.year}${p.month}${p.day}_${p.hour}${p.minute}${p.second}_CT`;
-}
-
-function labelCt() {
-  const p = nowCtParts();
-  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second} CT`;
-}
 
 function runScript(relativePath, extraArgs = []) {
   const result = spawnSync(process.execPath, [join(REPO_ROOT, relativePath), ...extraArgs], {
@@ -163,9 +139,17 @@ async function main() {
 
   const jsonPath = join(OUTPUT_DIR, `${ts}__repo_operationalization.json`);
   const mdPath = join(OUTPUT_DIR, `${ts}__repo_operationalization.md`);
+  const latestJsonPath = join(OUTPUT_DIR, "latest__buildwide_operationalization.json");
+  const latestMdPath = join(OUTPUT_DIR, "latest__buildwide_operationalization.md");
   writeFileSync(jsonPath, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
+  writeFileSync(latestJsonPath, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
   writeFileSync(
     mdPath,
+    `# Repo Operationalization\n\n- Status: ${status}\n- Generated: ${payload.generated_at_ct}\n- Steps: ${steps.length}\n`,
+    "utf-8"
+  );
+  writeFileSync(
+    latestMdPath,
     `# Repo Operationalization\n\n- Status: ${status}\n- Generated: ${payload.generated_at_ct}\n- Steps: ${steps.length}\n`,
     "utf-8"
   );

@@ -1,10 +1,10 @@
 <!-- managed-by: activ8-ai-context-pack | pack-version: 1.2.0 -->
-<!-- source-sha: bff7ed8 -->
+<!-- source-sha: 3fab2c5 -->
 <!-- platform: genesis | tier: T2 | version: 1.2.0 | policy: ai-agent-policy@wrapper | updated: 2026-03-18 -->
 
 # Genesis Agent Instructions — gh-repo-clone-openai-openai-agents-python
 
-**Charter binding:** Activ8 AI Operational Execution & Accountability Charter (v1.5).
+**Charter binding:** Activ8 AI Operational Execution & Accountability Charter (v1.6).
 
 ## Start here
 
