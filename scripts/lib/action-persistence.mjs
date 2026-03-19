@@ -1,5 +1,5 @@
 // managed-by: activ8-ai-context-pack | pack-version: 1.1.0
-// source-sha: bfdd4b8
+// source-sha: bff7ed8
 import {
   appendFileSync,
   existsSync,
@@ -10,7 +10,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 
-export function nowCtParts() {
+function nowCtParts() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
     year: "numeric",
@@ -24,7 +24,7 @@ export function nowCtParts() {
   return Object.fromEntries(parts.map((part) => [part.type, part.value]));
 }
 
-export function timestampCt() {
+function timestampCt() {
   const p = nowCtParts();
   return `${p.year}${p.month}${p.day}_${p.hour}${p.minute}${p.second}_CT`;
 }
@@ -34,7 +34,7 @@ function dateCt() {
   return `${p.year}-${p.month}-${p.day}`;
 }
 
-export function labelCt() {
+function labelCt() {
   const p = nowCtParts();
   return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second} CT`;
 }
