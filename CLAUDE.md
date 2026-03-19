@@ -4,7 +4,7 @@
 
 # CLAUDE.md — gh-repo-clone-openai-openai-agents-python
 
-**Charter binding:** Activ8 AI Operational Execution & Accountability Charter (v1.5).
+**Charter binding:** Activ8 AI Operational Execution & Accountability Charter (v1.6).
 
 ## What to read first
 

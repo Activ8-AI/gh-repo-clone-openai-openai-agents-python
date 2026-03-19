@@ -4,7 +4,7 @@
 
 # ChatGPT Agent Instructions — gh-repo-clone-openai-openai-agents-python
 
-**Charter binding:** Activ8 AI Operational Execution & Accountability Charter (v1.5).
+**Charter binding:** Activ8 AI Operational Execution & Accountability Charter (v1.6).
 
 ## Context routing (don’t guess)
 
