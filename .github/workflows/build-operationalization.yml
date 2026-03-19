@@ -140,7 +140,7 @@ jobs:
         with:
           name: action-persistence
           path: artifacts/action-persistence/*
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Publish build operationalization summary
         if: always()
