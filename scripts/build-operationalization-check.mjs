@@ -1,15 +1,39 @@
 #!/usr/bin/env node
 // managed-by: activ8-ai-context-pack | pack-version: 1.2.0
-// source-sha: bfdd4b8
+// source-sha: bff7ed8
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { labelCt, timestampCt } from "./lib/action-persistence.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, "..");
 const OUTPUT_DIR = join(REPO_ROOT, "artifacts", "build-operationalization");
+
+function nowCtParts() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+}
+
+function timestampCt() {
+  const p = nowCtParts();
+  return `${p.year}${p.month}${p.day}_${p.hour}${p.minute}${p.second}_CT`;
+}
+
+function labelCt() {
+  const p = nowCtParts();
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second} CT`;
+}
 
 function readText(relativePath) {
   try {
@@ -22,6 +46,19 @@ function readText(relativePath) {
 function hasPackageScript(pkg, name, needle) {
   const value = pkg?.scripts?.[name];
   return typeof value === "string" && value.includes(needle);
+}
+
+function runNodeScript(scriptArgs) {
+  const result = spawnSync(process.execPath, [join(REPO_ROOT, scriptArgs[0]), ...scriptArgs.slice(1)], {
+    cwd: REPO_ROOT,
+    encoding: "utf-8",
+  });
+
+  return {
+    ok: result.status === 0,
+    stdout: (result.stdout || "").trim(),
+    stderr: (result.stderr || "").trim(),
+  };
 }
 
 const requiredFiles = [
@@ -40,6 +77,7 @@ const requiredFiles = [
   "scripts/build-operationalization-check.mjs",
   "scripts/operationalize-buildwide.mjs",
   "scripts/action-persistence-self-check.mjs",
+  "scripts/lint-alias-drift.mjs",
   "scripts/query-source-ladder.mjs",
   "scripts/session-boot.mjs",
   "scripts/lib/action-persistence.mjs",
@@ -48,6 +86,8 @@ const requiredFiles = [
   "artifacts/prompt-library/STOP-RESET-REALIGN-ANTI-AVOIDANCE-PROMPTS.md",
   "artifacts/prompt-library/AGENT-ANNOUNCEMENT-SRR-ANTI-AVOIDANCE-v1.md",
 ];
+
+const workflowContent = readText(".github/workflows/build-operationalization.yml") || "";
 
 const blockers = [];
 const checks = [];
@@ -81,6 +121,10 @@ const packageChecks = [
     ok: hasPackageScript(pkg, "action-persistence:check", "scripts/action-persistence-self-check.mjs"),
   },
   {
+    name: "lint:aliases",
+    ok: hasPackageScript(pkg, "lint:aliases", "scripts/lint-alias-drift.mjs"),
+  },
+  {
     name: "query:source-ladder",
     ok: hasPackageScript(pkg, "query:source-ladder", "scripts/query-source-ladder.mjs"),
   },
@@ -88,12 +132,21 @@ const packageChecks = [
     name: "session:boot",
     ok: hasPackageScript(pkg, "session:boot", "scripts/session-boot.mjs"),
   },
+  {
+    name: "context:sync:self",
+    ok: hasPackageScript(pkg, "context:sync:self", "scripts/sync-context-pack.mjs --target . --strict"),
+  },
+  {
+    name: "agents:sync:auto",
+    ok: hasPackageScript(pkg, "agents:sync:auto", "scripts/sync-agent-instructions.mjs --fix --push-notion --emit-notion"),
+  },
 ];
 
 if (pkg?.scripts?.preflight) {
   packageChecks.push({
     name: "preflight hook",
-    ok: hasPackageScript(pkg, "preflight", "npm run operationalize:repo -- --dry-run"),
+    ok: hasPackageScript(pkg, "preflight", "npm run operationalize:repo -- --dry-run") &&
+      hasPackageScript(pkg, "preflight", "npm run lint:aliases"),
   });
 }
 
@@ -112,6 +165,20 @@ for (const check of packageChecks) {
 }
 
 const markerChecks = [
+  {
+    name: ".github/workflows/build-operationalization.yml self-sync preference",
+    ok: workflowContent.includes("NOTION_API_TOKEN") &&
+      workflowContent.includes("npm run operationalize:repo -- --with-sync --update-performance") &&
+      workflowContent.includes("falling back to dry-run"),
+  },
+  {
+    name: ".github/workflows/build-operationalization.yml governed write-back lane",
+    ok: workflowContent.includes("pull-requests: write") &&
+      workflowContent.includes("git add -u") &&
+      workflowContent.includes("auto/build-operationalization-writeback") &&
+      workflowContent.includes("gh pr create") &&
+      workflowContent.includes("github.event_name != 'pull_request'"),
+  },
   {
     name: "docs/AUDIENCE-SURFACE-CONTRACT.md audience marker",
     ok: (readText("docs/AUDIENCE-SURFACE-CONTRACT.md") || "").includes("Audience Contract"),
@@ -237,6 +304,25 @@ for (const check of markerChecks) {
   checks.push(check);
   if (!check.ok) {
     blockers.push(`Missing required marker: ${check.name}`);
+  }
+}
+
+const aliasLint = runNodeScript(["scripts/lint-alias-drift.mjs", "--json"]);
+checks.push({
+  name: "alias drift lint",
+  ok: aliasLint.ok,
+});
+if (!aliasLint.ok) {
+  blockers.push("Alias drift detected in active repo surfaces");
+}
+
+if (pkg?.scripts?.preflight) {
+  checks.push({
+    name: "preflight alias lint hook",
+    ok: hasPackageScript(pkg, "preflight", "npm run lint:aliases"),
+  });
+  if (!hasPackageScript(pkg, "preflight", "npm run lint:aliases")) {
+    blockers.push("Package script missing contract: preflight alias lint hook");
   }
 }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // managed-by: activ8-ai-context-pack | pack-version: 1.2.0
-// source-sha: bfdd4b8
+// source-sha: bff7ed8
 
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
@@ -31,22 +31,13 @@ const ANCHOR_FILES = [
   "memory/key-lessons.md",
 ];
 const REPO_MIRROR_DIRS = ["docs", ".github", "artifacts/prompt-library", "memory", "scripts"];
-function pathListFromEnv(name, fallback = []) {
-  const raw = process.env[name];
-  if (!raw) return [...fallback];
-  return raw
-    .split(path.delimiter)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-const DOWNLOAD_FILES = pathListFromEnv("SOURCE_LADDER_DOWNLOAD_FILES");
-const DOWNLOAD_DIRS = pathListFromEnv("SOURCE_LADDER_DOWNLOAD_DIRS", [path.join(HOME, "Downloads")]);
+const DOWNLOAD_FILES = [];
+const DOWNLOAD_DIRS = [];
 const RECEIPT_ROOT = path.join(REPO_ROOT, "artifacts", "source-query-ladder");
 const RECEIPTS_DIR = path.join(RECEIPT_ROOT, "receipts");
 const CACHE_DIR = path.join(RECEIPT_ROOT, "cache");
 const LEDGER_PATH = path.join(RECEIPT_ROOT, "query-receipts.jsonl");
-const LATEST_PATH = path.join(RECEIPT_ROOT, "latest.json");
+const LATEST_DIR = path.join(RECEIPT_ROOT, "latest");
 
 function usage() {
   console.error(
@@ -210,27 +201,26 @@ function toDisplayPath(targetPath) {
 async function ensureReceiptDirs() {
   await fs.mkdir(RECEIPTS_DIR, { recursive: true });
   await fs.mkdir(CACHE_DIR, { recursive: true });
+  await fs.mkdir(LATEST_DIR, { recursive: true });
 }
 
 async function loadCachedResult(cachePath, ttlMinutes) {
   if (ttlMinutes === 0) return null;
   const stats = await statSafe(cachePath);
   if (!stats?.isFile()) return null;
-  const payload = JSON.parse(await fs.readFile(cachePath, "utf8"));
-  const createdAtMs = Date.parse(payload?.meta?.created_at || "");
-  const freshnessEpochMs = Number.isFinite(createdAtMs) ? createdAtMs : stats.mtimeMs;
-  const ageMinutes = (Date.now() - freshnessEpochMs) / 60000;
+  const ageMinutes = (Date.now() - stats.mtimeMs) / 60000;
   if (ageMinutes > ttlMinutes) return null;
-  return payload;
+  return JSON.parse(await fs.readFile(cachePath, "utf8"));
 }
 
 async function writeReceiptArtifacts(result) {
   await ensureReceiptDirs();
   const ts = nowIso().replace(/[:.]/g, "-");
   const receiptPath = path.join(RECEIPTS_DIR, `${ts}__${result.meta.cache_key}.json`);
+  const latestPath = path.join(LATEST_DIR, `${result.meta.cache_key}.json`);
   const payload = { ...result, meta: { ...result.meta, latest_receipt_path: toDisplayPath(receiptPath) } };
   await fs.writeFile(receiptPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-  await fs.writeFile(LATEST_PATH, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  await fs.writeFile(latestPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   await fs.writeFile(path.join(CACHE_DIR, `${result.meta.cache_key}.json`), `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   await fs.appendFile(
     LEDGER_PATH,
