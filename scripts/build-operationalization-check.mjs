@@ -4,34 +4,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { labelCt, timestampCt } from "./lib/action-persistence.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, "..");
 const OUTPUT_DIR = join(REPO_ROOT, "artifacts", "build-operationalization");
-
-function nowCtParts() {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Chicago",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date());
-  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
-}
-
-function timestampCt() {
-  const p = nowCtParts();
-  return `${p.year}${p.month}${p.day}_${p.hour}${p.minute}${p.second}_CT`;
-}
-
-function labelCt() {
-  const p = nowCtParts();
-  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second} CT`;
-}
 
 function readText(relativePath) {
   try {

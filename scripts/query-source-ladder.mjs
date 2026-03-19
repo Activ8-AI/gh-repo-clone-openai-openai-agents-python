@@ -30,8 +30,17 @@ const ANCHOR_FILES = [
   "memory/key-lessons.md",
 ];
 const REPO_MIRROR_DIRS = ["docs", ".github", "artifacts/prompt-library", "memory", "scripts"];
-const DOWNLOAD_FILES = [path.join(HOME, "Downloads", "2250316 NOTION WORKSPACE MASTER SITEMAP v1.7.md")];
-const DOWNLOAD_DIRS = [path.join(HOME, "Downloads", "Private & Shared 2")];
+function pathListFromEnv(name, fallback = []) {
+  const raw = process.env[name];
+  if (!raw) return [...fallback];
+  return raw
+    .split(path.delimiter)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+const DOWNLOAD_FILES = pathListFromEnv("SOURCE_LADDER_DOWNLOAD_FILES");
+const DOWNLOAD_DIRS = pathListFromEnv("SOURCE_LADDER_DOWNLOAD_DIRS", [path.join(HOME, "Downloads")]);
 const RECEIPT_ROOT = path.join(REPO_ROOT, "artifacts", "source-query-ladder");
 const RECEIPTS_DIR = path.join(RECEIPT_ROOT, "receipts");
 const CACHE_DIR = path.join(RECEIPT_ROOT, "cache");
@@ -206,9 +215,12 @@ async function loadCachedResult(cachePath, ttlMinutes) {
   if (ttlMinutes === 0) return null;
   const stats = await statSafe(cachePath);
   if (!stats?.isFile()) return null;
-  const ageMinutes = (Date.now() - stats.mtimeMs) / 60000;
+  const payload = JSON.parse(await fs.readFile(cachePath, "utf8"));
+  const createdAtMs = Date.parse(payload?.meta?.created_at || "");
+  const freshnessEpochMs = Number.isFinite(createdAtMs) ? createdAtMs : stats.mtimeMs;
+  const ageMinutes = (Date.now() - freshnessEpochMs) / 60000;
   if (ageMinutes > ttlMinutes) return null;
-  return JSON.parse(await fs.readFile(cachePath, "utf8"));
+  return payload;
 }
 
 async function writeReceiptArtifacts(result) {
